@@ -28,6 +28,8 @@ DX = 10.0                   # m, along-track resampling
 MIN_RELIEF = 150.0          # m, a "hike" must actually climb
 WIN_KM = [1.5, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100]
 N_NULL = 500
+FORECAST_END = "2026-12-31"   # satire horizon
+N_SPAGHETTI = 25
 SEED = 20261105
 
 # (relative path, display name, region, source repo, licence)
@@ -111,6 +113,84 @@ def search(profiles: list[Profile], targets: np.ndarray):
             for j in range(len(starts)):
                 rows.append((pi, km, int(starts[j]), win, float(r_f[j, 0]), float(r_b[j, 0])))
     return best, rows
+
+
+def _blocks(x: np.ndarray, n_bins: int, bin_len: float) -> np.ndarray:
+    """Average ``x`` into ``n_bins`` consecutive bins of (fractional) length ``bin_len`` samples."""
+    edges = np.round(np.arange(n_bins + 1) * bin_len).astype(int)
+    cs = np.r_[0.0, np.cumsum(x)]
+    hi = np.maximum(edges[1:], edges[:-1] + 1)
+    return (cs[hi] - cs[edges[:-1]]) / (hi - edges[:-1])
+
+
+def elev_to_index(profile: np.ndarray, target: np.ndarray) -> tuple[float, float]:
+    """Least-squares map index = a + b * elevation over the matched window."""
+    b, a = np.polyfit(profile, target, 1)
+    return float(a), float(b)
+
+
+def n_ahead() -> int:
+    """Grid steps from END to FORECAST_END at the target's own spacing."""
+    import pandas as pd
+    step = (pd.Timestamp(END) - pd.Timestamp(START)).days / (N - 1)
+    return int(np.floor((pd.Timestamp(FORECAST_END) - pd.Timestamp(END)).days / step))
+
+
+def trail_continuations(profiles, rows, target, k_max: int) -> list[dict]:
+    """'Forecasts' from the best distinct windows that have ground left to walk.
+
+    Each window's elevation is mapped to index points by its own linear fit,
+    then the trail beyond the window end (in walking direction) is mapped the
+    same way. Windows overlapping an already chosen one are skipped.
+    """
+    k = n_ahead()
+    chosen, out = [], []
+    for pi, km, s, win, rf, rb in rows:
+        if len(out) >= k_max:
+            break
+        if any(pi == cp and s < cs + cw and cs < s + win for cp, cs, cw in chosen):
+            continue
+        e = profiles[pi].elev
+        bin_len = win / N
+        need = int(np.ceil(k * bin_len)) + 1
+        fwd = rf >= rb
+        if fwd:
+            if s + win + need > len(e):
+                continue
+            hist, cont = e[s:s + win], e[s + win:s + win + need]
+        else:
+            if s - need < 0:
+                continue
+            hist, cont = e[s:s + win][::-1], e[s - need:s][::-1]
+        h200 = _blocks(hist, N, bin_len)
+        a, b = elev_to_index(h200, target)
+        # anchor to the last real close: only elevation *changes* are mapped to index points
+        fc = target[-1] + b * (_blocks(cont, k, bin_len) - h200[-1])
+        chosen.append((pi, s, win))
+        out.append({"name": profiles[pi].name, "window_km": km, "r": round(max(rf, rb), 4),
+                    "forecast": fc.round(0).tolist()})
+    return out
+
+
+def jotunheimen_forecast(jot: dict, target: np.ndarray) -> dict:
+    """Continue the winning transect along its bearing and map elevation → index."""
+    k = n_ahead()
+    bin_m = jot["km"] * 1000 / N
+    d = (np.arange(k * 3) + 0.5) * bin_m / 3  # 3 dense samples per bin, as in the search
+    lat0, lon0 = jot["end"]
+    az = np.radians(jot["azimuth_deg"])
+    la = lat0 + d * np.cos(az) / 111_195.0
+    lo = lon0 + d * np.sin(az) / (111_195.0 * np.cos(np.radians(lat0)))
+    cont = dem.sample(la, lo).reshape(k, 3).mean(1)
+    prof = np.asarray(jot["elev"])
+    a, b = elev_to_index(prof, target)
+    from scipy import stats
+    n, r = len(target), jot["r"]
+    t = r * np.sqrt(n - 2) / np.sqrt(1 - r * r)
+    log10p = float((stats.t.logsf(t, n - 2) + np.log(2)) / np.log(10))
+    return {"a": a, "b": b, "metres_per_point": 1 / b, "elev_cont": cont.round(1).tolist(),
+            "forecast": (target[-1] + b * (cont - prof[-1])).round(0).tolist(), "fitted": (a + b * prof).round(0).tolist(),
+            "naive_log10_p": log10p, "r2": r * r, "cont_end": [float(la[-1]), float(lo[-1])]}
 
 
 def transects_jotunheimen(target: np.ndarray, n_dense: int = 600):
@@ -198,6 +278,8 @@ def main(corpus: Path) -> None:
     }
     winner["waypoints"] = nearby_waypoints(corpus / TRAILS[[t[1] for t in TRAILS].index(winner["name"])][0], la, lo, e)
     jot = transects_jotunheimen(target)
+    jfc = jotunheimen_forecast(jot, target)
+    spaghetti = trail_continuations(profiles, rows, target, N_SPAGHETTI)
     out = {
         "target": {"start": START, "end": END, "n": N, "values": target.round(2).tolist()},
         "winner": winner,
@@ -208,6 +290,7 @@ def main(corpus: Path) -> None:
         "null": {"n": N_NULL, "best_r": np.sort(null_best).round(4).tolist(),
                  "share_beating_real": float((null_best >= real_best).mean())},
         "jotunheimen": jot,
+        "forecast": {"end": FORECAST_END, "steps": n_ahead(), "jotunheimen": jfc, "trails": spaghetti},
         "dem": "AWS Terrain Tiles (Mapzen skadi, 1 arc-second); heights in m above EGM96 geoid",
     }
     (ROOT / "data" / "trail_match.json").write_text(json.dumps(out))
@@ -216,6 +299,10 @@ def main(corpus: Path) -> None:
     print(f"windows tested: {out['n_windows']:,}; null median best r={np.median(null_best):.3f}, share ≥ real: {out['null']['share_beating_real']:.2%}")
     print(f"Jotunheimen: r={jot['r']:.3f} {jot['km']} km az {jot['azimuth_deg']} from {jot['start']} to {jot['end']} ({jot['n_transects']:,} transects)")
     print("waypoints:", winner["waypoints"])
+    print(f"forecast: Jotunheimen Dec31={jfc['forecast'][-1]:.0f} first={jfc['forecast'][0]:.0f} min={min(jfc['forecast']):.0f} max={max(jfc['forecast']):.0f}; log10 p={jfc['naive_log10_p']:.1f}; m/pt={jfc['metres_per_point']:.4f}")
+    ends = [t["forecast"][-1] for t in spaghetti]
+    print(f"spaghetti: {len(spaghetti)} trails, Dec31 range {min(ends):.0f}–{max(ends):.0f}, r range {min(t['r'] for t in spaghetti)}–{max(t['r'] for t in spaghetti)}")
+    for t in spaghetti[:8]: print("  ", t["name"], t["window_km"], t["r"], t["forecast"][0], t["forecast"][-1])
     print(f"done in {time.time()-t0:.0f}s")
 
 

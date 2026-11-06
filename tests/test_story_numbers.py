@@ -78,3 +78,17 @@ def test_nov5_is_record_points_not_percent(data):
     nov5 = next(r for r in worst if r[0] == "2026-11-05")
     assert min(r[3] for r in worst) == nov5[3]
     assert sorted(r[2] for r in worst).index(nov5[2]) >= 5
+
+
+def test_satire_forecast_is_anchored_and_consistent(data, close):
+    fc = data["trail"]["forecast"]
+    jf = fc["jotunheimen"]
+    assert fc["steps"] == len(jf["forecast"]) == 36  # 5 Nov -> 31 Dec at the target grid spacing
+    # anchored: first step stays near the last real close, not the fitted level
+    assert abs(jf["forecast"][0] - close("2026-11-05")) < 300
+    assert jf["naive_log10_p"] < -100  # the deliberately absurd p-value the satire quotes
+    assert jf["r2"] == pytest.approx(data["trail"]["jotunheimen"]["r"] ** 2)
+    ends = [t["forecast"][-1] for t in fc["trails"]]
+    assert len(fc["trails"]) == 25 and max(ends) - min(ends) > 3000  # the "drivers" disagree
+    # the Line called Friday down; Friday was actually up
+    assert jf["forecast"][0] < close("2026-11-05") < close("2026-11-06")

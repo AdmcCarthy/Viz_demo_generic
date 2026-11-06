@@ -16,8 +16,13 @@ on 30 November 2022.
 5. **The epicentre.** Chip and AI-infrastructure stocks fell 2–3× as far as the index.
 6. **Scale.** Proportional squares show the $2.5T loss is bigger than Norway's oil fund. Nvidia's one-day loss is bigger than the whole of Nvidia on ChatGPT day.
 7. **Friday's bounce** and a short summary.
-8. **Detour: if 2026 were a hike.** The Nasdaq's year-to-date path is matched against real trail elevation profiles. The best stretch is 6 km of the Bob Graham Round (Clough Head → Great Dodd → Watson's Dodd → Stybarrow Dodd, r = 0.958). A bonus straight-line transect in Jotunheimen scores r = 0.971.
-9. **The catch.** 500 random-walk "fake indices" get the same search, and 66% of them find a closer match than the real index. That is the look-elsewhere effect, shown with data.
+8. **Part two, satire: "We found what really moves the market".** The page "discovers" that a 6 km line across western Jotunheimen drives the Nasdaq (r = 0.971, R² = 94%, a naive p < 10⁻¹²⁴). A Lake District fell walk is "independent confirmation" (r = 0.958). The Line is then extended along its bearing to "forecast" the index to 31 Dec with "100% certainty".
+9. **The fine print.** The page breaks character and shows why the claim is nonsense:
+   - the Line got Friday wrong;
+   - 66% of random walks find a better trail match (look-elsewhere effect);
+   - the p-value ignores autocorrelation and about 290k tests;
+   - the 25 next-best "drivers" forecast anything from −14% to +11%;
+   - there is no mechanism.
 
 ## Repository layout
 
