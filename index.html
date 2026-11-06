@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Forty-Eight Hours</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="A scrolling data story: the 5 November 2026 Nasdaq rout, measured against the AI boom that came before it.">
 <meta property="og:title" content="Forty-Eight Hours — the $2.5 trillion afternoon">
 <meta property="og:description" content="The Nasdaq's biggest point drop ever, put in the context of the AI boom.">
@@ -76,10 +77,11 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-h1, h2, h3, .serif { font-family: Fraunces, Georgia, serif; }
+h1, h2, h3, .serif { font-family: Fraunces, Georgia, serif; text-wrap: balance; }
 a { color: var(--boom); }
-.wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
-.wide { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+.wrap, .wide { margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 752px; }
+.wide { max-width: 1152px; }
 .num { font-variant-numeric: tabular-nums; }
 .loss { color: var(--loss); }
 .boom { color: var(--boom); }
@@ -90,13 +92,13 @@ a { color: var(--boom); }
 
 /* theme toggle */
 #theme {
-  position: fixed; top: 12px; right: 12px; z-index: 40;
+  position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); z-index: 40;
   border: 1px solid var(--grid); background: var(--surface-1); color: var(--text-secondary);
   border-radius: 999px; padding: 6px 12px; font: 500 13px Inter, sans-serif; cursor: pointer;
 }
 
 /* ---------- hero ---------- */
-.hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 72px 0 48px; position: relative; }
+.hero { display: flex; flex-direction: column; justify-content: center; padding-block: clamp(72px, 14vh, 140px) 72px; position: relative; }
 .kicker { text-transform: uppercase; letter-spacing: .14em; font-size: 12px; font-weight: 600; color: var(--loss); }
 .hero h1 { font-size: clamp(48px, 11vw, 120px); line-height: .95; margin: 14px 0 20px; font-weight: 800; letter-spacing: -.02em; }
 .hero .dek { font-size: clamp(18px, 2.4vw, 22px); color: var(--text-secondary); max-width: 640px; margin: 0; }
@@ -104,7 +106,7 @@ a { color: var(--boom); }
 .tile { background: var(--surface-1); border-radius: 12px; padding: 16px; box-shadow: var(--card-shadow); }
 .tile .v { font: 700 clamp(24px, 4.4vw, 40px)/1.1 Inter, sans-serif; letter-spacing: -.02em; }
 .tile .l { font-size: 13px; color: var(--text-secondary); margin-top: 6px; line-height: 1.35; }
-.scroll-cue { position: absolute; bottom: 24px; left: 16px; font-size: 13px; color: var(--text-muted); animation: bob 2s ease-in-out infinite; }
+.scroll-cue { position: absolute; bottom: 24px; left: max(16px, env(safe-area-inset-left, 0px)); font-size: 13px; color: var(--text-muted); animation: bob 2s ease-in-out infinite; }
 @keyframes bob { 50% { transform: translateY(6px); } }
 
 /* ---------- prose ---------- */
@@ -117,6 +119,7 @@ a { color: var(--boom); }
 .scrolly { position: relative; display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 40px; }
 .steps { position: relative; z-index: 2; padding: 30vh 0; }
 .step { min-height: 80vh; display: flex; align-items: center; }
+button:focus-visible { outline: 2px solid var(--boom); outline-offset: 2px; }
 .step .card {
   background: var(--surface-1); border-radius: 14px; padding: 22px 22px 20px; box-shadow: var(--card-shadow);
   opacity: .35; transition: opacity .35s; border-left: 4px solid transparent;
@@ -201,7 +204,7 @@ details.table-view td, details.table-view th { text-align: left; padding: 4px 6p
   .tiles { grid-template-columns: 1fr; }
   .grid2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .ann-big { font-size: 16px; }
-  #theme { top: auto; bottom: 12px; }
+  #theme { top: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
