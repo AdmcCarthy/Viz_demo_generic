@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forty-Eight Hours</title>
+<meta name="description" content="A scrolling data story: the 5 November 2026 Nasdaq rout, measured against the AI boom that came before it.">
+<meta property="og:title" content="Forty-Eight Hours — the $2.5 trillion afternoon">
+<meta property="og:description" content="The Nasdaq's biggest point drop ever, put in the context of the AI boom.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f3ef;
+  --surface-1: #fcfcfb;
+  --surface-2: #ecebe6;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #77756f;
+  --grid: #e3e2dc;
+  --axis: #b9b7ae;
+  --boom: #2a78d6;
+  --boom-soft: rgba(42,120,214,.14);
+  --loss: #e34948;
+  --loss-soft: rgba(227,73,72,.14);
+  --neutral: #a8a69e;
+  --card-shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #111110;
+    --surface-1: #1a1a19;
+    --surface-2: #262624;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #94938a;
+    --grid: #2e2e2b;
+    --axis: #55544f;
+    --boom: #3987e5;
+    --boom-soft: rgba(57,135,229,.18);
+    --loss: #e66767;
+    --loss-soft: rgba(230,103,103,.18);
+    --neutral: #6b6a64;
+    --card-shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #111110;
+  --surface-1: #1a1a19;
+  --surface-2: #262624;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #94938a;
+  --grid: #2e2e2b;
+  --axis: #55544f;
+  --boom: #3987e5;
+  --boom-soft: rgba(57,135,229,.18);
+  --loss: #e66767;
+  --loss-soft: rgba(230,103,103,.18);
+  --neutral: #6b6a64;
+  --card-shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font: 17px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1, h2, h3, .serif { font-family: Fraunces, Georgia, serif; }
+a { color: var(--boom); }
+.wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+.wide { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+.num { font-variant-numeric: tabular-nums; }
+.loss { color: var(--loss); }
+.boom { color: var(--boom); }
+.muted { color: var(--text-muted); }
+
+/* progress bar */
+#progress { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--loss); z-index: 50; }
+
+/* theme toggle */
+#theme {
+  position: fixed; top: 12px; right: 12px; z-index: 40;
+  border: 1px solid var(--grid); background: var(--surface-1); color: var(--text-secondary);
+  border-radius: 999px; padding: 6px 12px; font: 500 13px Inter, sans-serif; cursor: pointer;
+}
+
+/* ---------- hero ---------- */
+.hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 72px 0 48px; position: relative; }
+.kicker { text-transform: uppercase; letter-spacing: .14em; font-size: 12px; font-weight: 600; color: var(--loss); }
+.hero h1 { font-size: clamp(48px, 11vw, 120px); line-height: .95; margin: 14px 0 20px; font-weight: 800; letter-spacing: -.02em; }
+.hero .dek { font-size: clamp(18px, 2.4vw, 22px); color: var(--text-secondary); max-width: 640px; margin: 0; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 40px; max-width: 760px; }
+.tile { background: var(--surface-1); border-radius: 12px; padding: 16px; box-shadow: var(--card-shadow); }
+.tile .v { font: 700 clamp(24px, 4.4vw, 40px)/1.1 Inter, sans-serif; letter-spacing: -.02em; }
+.tile .l { font-size: 13px; color: var(--text-secondary); margin-top: 6px; line-height: 1.35; }
+.scroll-cue { position: absolute; bottom: 24px; left: 16px; font-size: 13px; color: var(--text-muted); animation: bob 2s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(6px); } }
+
+/* ---------- prose ---------- */
+.prose { padding: 72px 0; }
+.prose h2 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; margin: 0 0 18px; font-weight: 600; letter-spacing: -.01em; }
+.prose p { margin: 0 0 18px; }
+.prose .lede::first-letter { font: 800 64px/0.8 Fraunces, serif; float: left; margin: 8px 10px 0 0; color: var(--loss); }
+
+/* ---------- scrollytelling ---------- */
+.scrolly { position: relative; display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 40px; }
+.steps { position: relative; z-index: 2; padding: 30vh 0; }
+.step { min-height: 80vh; display: flex; align-items: center; }
+.step .card {
+  background: var(--surface-1); border-radius: 14px; padding: 22px 22px 20px; box-shadow: var(--card-shadow);
+  opacity: .35; transition: opacity .35s; border-left: 4px solid transparent;
+}
+.step.active .card { opacity: 1; border-left-color: var(--accent, var(--boom)); }
+.step .card h3 { margin: 0 0 8px; font-size: 22px; line-height: 1.2; }
+.step .card p { margin: 0 0 10px; font-size: 16px; color: var(--text-secondary); }
+.step .card p:last-child { margin-bottom: 0; }
+.step .date { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.sticky { position: sticky; top: 0; height: 100vh; display: flex; align-items: center; z-index: 1; }
+.chart-frame { width: 100%; background: var(--surface-1); border-radius: 16px; box-shadow: var(--card-shadow); padding: 18px 14px 10px; }
+.chart-title { font-weight: 600; font-size: 15px; padding: 0 6px; }
+.chart-sub { font-size: 13px; color: var(--text-muted); padding: 0 6px; }
+#lineChart { width: 100%; height: min(64vh, 560px); display: block; }
+
+/* svg text */
+svg text { font-family: Inter, sans-serif; fill: var(--text-secondary); }
+.axis path, .axis line { stroke: var(--axis); }
+.axis text { font-size: 12px; fill: var(--text-muted); }
+.gridline line { stroke: var(--grid); }
+.gridline path { display: none; }
+.ann-text { font-size: 13px; font-weight: 600; fill: var(--text-primary); }
+.ann-sub { font-size: 12px; fill: var(--text-secondary); }
+.ann-big { font-size: 22px; font-weight: 700; }
+.halo { paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; }
+
+/* tooltip */
+.tip {
+  position: fixed; pointer-events: none; z-index: 60; opacity: 0; transition: opacity .12s;
+  background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--grid);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.4; box-shadow: var(--card-shadow); max-width: 240px;
+}
+.tip b { font-weight: 600; }
+.tip .k { color: var(--text-muted); }
+
+/* ---------- static figures ---------- */
+figure.fig { margin: 0; background: var(--surface-1); border-radius: 16px; box-shadow: var(--card-shadow); padding: 20px 16px 14px; }
+figure.fig figcaption { font-size: 13px; color: var(--text-muted); margin-top: 10px; padding: 0 4px; }
+.fig-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 4px 8px; }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; }
+.seg button { border: 0; background: transparent; color: var(--text-secondary); font: 600 13px Inter, sans-serif; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface-1); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--text-secondary); padding: 0 4px 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.callout { font-family: Fraunces, serif; font-size: clamp(22px, 3.4vw, 30px); line-height: 1.3; margin: 0 0 18px; }
+
+/* ledger bar */
+.ledger { display: flex; height: 64px; border-radius: 8px; overflow: hidden; gap: 2px; margin: 18px 0 8px; }
+.ledger div { height: 100%; transition: flex-grow 1.2s cubic-bezier(.2,.7,.2,1); flex-basis: 0; position: relative; cursor: default; }
+.ledger .kept { background: var(--boom); }
+.ledger .pre { background: var(--loss); opacity: .55; }
+.ledger .day { background: var(--loss); }
+.ledger-labels { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; font-size: 14px; }
+.ledger-labels b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+
+/* squares */
+#squares, #rankChart, #moversChart { width: 100%; display: block; }
+
+/* day two */
+.grid2 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 24px 0; }
+
+/* sources */
+.sources { font-size: 14px; color: var(--text-secondary); }
+.sources li { margin-bottom: 6px; }
+footer { padding: 48px 0 80px; font-size: 13px; color: var(--text-muted); }
+
+details.table-view { margin-top: 10px; font-size: 13px; }
+details.table-view summary { cursor: pointer; color: var(--text-secondary); }
+details.table-view table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+details.table-view td, details.table-view th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+
+/* ---------- mobile ---------- */
+@media (max-width: 860px) {
+  .scrolly { display: flex; flex-direction: column; }
+  .sticky { order: -1; height: 60vh; top: 0; padding: 8px 0 10px; align-items: flex-start; z-index: 3; background: var(--surface-0); }
+  #lineChart { height: calc(60vh - 78px); }
+  .steps { padding: 32vh 0 30vh; }
+  .step { min-height: 55vh; align-items: flex-start; }
+  .step .card { opacity: 1; padding: 16px 16px 14px; }
+  .step .card h3 { font-size: 19px; }
+  .step .card p { font-size: 15px; }
+  .tiles { grid-template-columns: 1fr; }
+  .grid2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .ann-big { font-size: 16px; }
+  #theme { top: auto; bottom: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<button id="theme" aria-label="Toggle colour theme">◐ Theme</button>
+<div class="tip" id="tip"></div>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero wrap">
+  <div class="kicker">Markets · 4–6 November 2026</div>
+  <h1>Forty-Eight Hours</h1>
+  <p class="dek">On Thursday the Nasdaq suffered the largest point drop in its history, wiping out roughly <b>$2.5 trillion</b> in one session. Is this the AI boom ending, or a dent in it? Scroll to put the number in proportion.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v loss num" data-count="-1421.51" data-fmt="pts">−1,421.51</div><div class="l">Nasdaq points lost on 5 Nov, a record</div></div>
+    <div class="tile"><div class="v loss num" data-count="-5.52" data-fmt="pct">−5.52%</div><div class="l">Worst day since April 2025</div></div>
+    <div class="tile"><div class="v loss num" data-count="2.5" data-fmt="tn">~$2.5T</div><div class="l">Nasdaq market value erased (CNN estimate)</div></div>
+  </div>
+  <div class="scroll-cue">↓ Scroll</div>
+</header>
+
+<section class="prose wrap">
+  <p class="lede">Tuesday was the US midterms. On Wednesday markets rallied on relief that the uncertainty was over. By Thursday the mood had turned: investors read a Democratic sweep as a signal of tougher regulation on AI data centres, Qualcomm gave a weak forecast, and the most crowded trade of the decade, AI chips, came apart all at once.</p>
+  <p>Big point drops make big headlines. But a large index also falls by large numbers. The useful question is <em>how much of the AI boom did those two days give back?</em></p>
+</section>
+
+<!-- ===================== SCROLLY ===================== -->
+<section class="wide">
+  <div class="scrolly">
+    <div class="steps" id="steps">
+      <div class="step" data-step="0" style="--accent: var(--boom)"><div class="card">
+        <div class="date">Wednesday 4 Nov</div>
+        <h3>Relief rally</h3>
+        <p>The day after the vote, the Nasdaq rose <b class="boom">+1.44%</b> to 25,736. The Dow added 1,569 points. The index was already about 7% below its October record, but the selling looked finished.</p>
+      </div></div>
+      <div class="step" data-step="1" style="--accent: var(--loss)"><div class="card">
+        <div class="date">Thursday 5 Nov</div>
+        <h3>The rout</h3>
+        <p>The Nasdaq fell <b class="loss">−5.52%</b> to 24,315, down <b class="loss">1,421.5 points</b>. That is the largest point drop ever recorded. Wednesday's gain was gone by lunchtime.</p>
+        <p>Micron and AMD each fell more than 17%. Nvidia fell 9%, losing roughly $450 billion of market value.</p>
+      </div></div>
+      <div class="step" data-step="2" style="--accent: var(--loss)"><div class="card">
+        <div class="date">From the peak</div>
+        <h3>Officially a correction</h3>
+        <p>The index closed <b class="loss">11.9%</b> below its 6 October record of 27,600. A fall of more than 10% from a high is the textbook definition of a correction.</p>
+      </div></div>
+      <div class="step" data-step="3" style="--accent: var(--boom)"><div class="card">
+        <div class="date">Zoom out</div>
+        <h3>Now look at the AI era</h3>
+        <p>ChatGPT launched on <b>30 November 2022</b>. The Nasdaq closed that day at 11,468. Over the next four years the AI trade carried it to <b class="boom">27,600</b>, a rise of <b class="boom">+141%</b>.</p>
+      </div></div>
+      <div class="step" data-step="4" style="--accent: var(--loss)"><div class="card">
+        <div class="date">The ledger</div>
+        <h3>Two brackets</h3>
+        <p>From ChatGPT day to the peak the index gained <b class="boom">16,132 points</b>. From the peak to Thursday's close it lost <b class="loss">3,285</b>.</p>
+        <p>The record-breaking Thursday on its own accounts for <b class="loss">8.8%</b> of the boom's gains.</p>
+      </div></div>
+      <div class="step" data-step="5" style="--accent: var(--boom)"><div class="card">
+        <div class="date">Friday 6 Nov, intraday</div>
+        <h3>Still more than double</h3>
+        <p>Even after the rout the Nasdaq is <b class="boom">2.1×</b> its ChatGPT-day level. On Friday morning a strong jobs report and a 5.6% bounce in Nvidia lifted the index about 1.7%.</p>
+        <p class="muted">The dashed end of the line is an intraday reading, not a close.</p>
+      </div></div>
+    </div>
+    <div class="sticky">
+      <div class="chart-frame">
+        <div class="chart-title">Nasdaq Composite</div>
+        <div class="chart-sub" id="lineSub">Index level · reported closes</div>
+        <svg id="lineChart" role="img" aria-label="Line chart of the Nasdaq Composite index"></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LEDGER ===================== -->
+<section class="prose wrap">
+  <h2>The boom, as one bar</h2>
+  <p>Treat every point the Nasdaq gained between ChatGPT's launch and the October peak as 100%. This is how much of it has been handed back:</p>
+  <div class="ledger" id="ledger" role="img" aria-label="Of the AI-era gains, 79.6% kept, 11.6% lost from the peak to 4 November, 8.8% lost on 5 November">
+    <div class="kept" data-share="79.6" data-tip="<b>Kept</b><br>12,847 pts · 79.6% of the AI-era gain"></div>
+    <div class="pre" data-share="11.6" data-tip="<b>Lost 6 Oct → 4 Nov</b><br>1,863 pts · 11.6%"></div>
+    <div class="day" data-share="8.8" data-tip="<b>Lost on 5 Nov alone</b><br>1,422 pts · 8.8%"></div>
+  </div>
+  <div class="ledger-labels">
+    <div><b class="boom">79.6%</b>still kept</div>
+    <div style="text-align:right"><b class="loss" style="opacity:.7">11.6%</b>lost in the month before</div>
+    <div style="text-align:right"><b class="loss">8.8%</b>lost on Thursday</div>
+  </div>
+  <p style="margin-top:24px">So the worst point drop in Nasdaq history erased about <b>one-eleventh</b> of the AI boom's gains. That hurts, but it is a long way from a collapse.</p>
+</section>
+
+<!-- ===================== POINTS VS PERCENT ===================== -->
+<section class="prose wide">
+  <div class="wrap" style="padding:0">
+    <h2>Record-breaking points, ordinary percentages</h2>
+    <p>Point records are mostly a sign of how high the index has climbed. In 1987 the whole Nasdaq was worth less than 450 points. Switch the ranking below and Thursday drops from first place into the middle of the pack.</p>
+  </div>
+  <figure class="fig" style="margin-top:24px">
+    <div class="fig-head">
+      <div>
+        <div class="chart-title">Selected Nasdaq sell-offs</div>
+        <div class="chart-sub" id="rankSub">Ranked by points lost in one session</div>
+      </div>
+      <div class="seg" role="group" aria-label="Rank by">
+        <button id="byPts" aria-pressed="true">Points</button>
+        <button id="byPct" aria-pressed="false">Percent</button>
+      </div>
+    </div>
+    <svg id="rankChart" role="img" aria-label="Bar chart ranking Nasdaq sell-offs"></svg>
+    <figcaption>A selection of notable days, not a full list. Dozens of sessions in 2000–01, 2008 and 2020 were worse in percentage terms than 5 Nov 2026.</figcaption>
+  </figure>
+</section>
+
+<!-- ===================== EPICENTRE ===================== -->
+<section class="prose wide">
+  <div class="wrap" style="padding:0">
+    <h2>The epicentre was the chips</h2>
+    <p>The selling was concentrated. The memory and GPU makers whose order books depend on data-centre construction fell two to three times as far as the broad market.</p>
+  </div>
+  <figure class="fig" style="margin-top:24px">
+    <div class="fig-head"><div><div class="chart-title">One-day change, Thursday 5 Nov 2026</div><div class="chart-sub">% change · indices shown for reference</div></div></div>
+    <svg id="moversChart" role="img" aria-label="Bar chart of one-day changes for chip stocks and indices"></svg>
+    <figcaption>CoreWeave and Nebius are approximate intraday figures from news reports. All others are closing changes.</figcaption>
+  </figure>
+</section>
+
+<!-- ===================== SCALE ===================== -->
+<section class="prose wide">
+  <div class="wrap" style="padding:0">
+    <h2>How big is $2.5 trillion?</h2>
+    <p class="callout">In one afternoon the Nasdaq lost more than <span class="loss">the entire value of Norway's oil fund</span>, which is three decades of saved petroleum revenue.</p>
+    <p>And the market value Nvidia lost in a single day is more than the whole company was worth on the day ChatGPT launched.</p>
+  </div>
+  <figure class="fig" style="margin-top:24px">
+    <div class="fig-head"><div><div class="chart-title">Square area is proportional to US$ value</div><div class="chart-sub">Trillions of US dollars</div></div></div>
+    <svg id="squares" role="img" aria-label="Proportional squares comparing dollar values"></svg>
+    <details class="table-view"><summary>Show as table</summary>
+      <table><thead><tr><th>Item</th><th>US$ trillion</th><th>Note</th></tr></thead><tbody id="sqTable"></tbody></table>
+    </details>
+    <figcaption>Oil fund: NBIM's reported value on 30 Sep 2026 (NOK 22.0tn). Nvidia's ChatGPT-day value is about 2.46bn shares × $169 (pre-split), approximate. Nvidia's 5 Nov loss is about 24.3bn shares × the $18.5 fall in price. Reports give $374–450bn.</figcaption>
+  </figure>
+</section>
+
+<!-- ===================== DAY TWO ===================== -->
+<section class="prose wrap">
+  <h2>Friday: the bounce</h2>
+  <p>Overnight the shock moved east. South Korea's Kospi, which is heavy in memory-chip stocks, opened down nearly 9%. Then US October payrolls came in at <b>165,000</b>, far above the ~60,000 forecast, and dip-buyers came back to the chip stocks.</p>
+  <div class="grid2">
+    <div class="tile"><div class="v boom num">+165k</div><div class="l">US jobs added in Oct (≈60k expected)</div></div>
+    <div class="tile"><div class="v num">4.1%</div><div class="l">Unemployment rate (4.2% expected)</div></div>
+    <div class="tile"><div class="v boom num">+5.6%</div><div class="l">Nvidia, Friday morning</div></div>
+    <div class="tile"><div class="v loss num">≈ −9%</div><div class="l">Kospi at Friday's open</div></div>
+  </div>
+  <p>As of Friday morning the Nasdaq is still about <b class="loss">3.9% below Wednesday's close</b>. A strong labour market also brings back an old worry, rate hikes, which could weigh on long-duration tech valuations.</p>
+</section>
+
+<section class="prose wrap">
+  <h2>So, is the bubble bursting?</h2>
+  <p>Two days cannot answer that. What the numbers do show:</p>
+  <p><b>1. It was a record in points, not in pain.</b> At −5.52%, Thursday ranks well below the worst days of 1987, 2000, 2008 and 2020, and below April 2025.</p>
+  <p><b>2. It was concentrated.</b> Chip and AI-infrastructure stocks fell two to three times as hard as the index. The market was repricing one theme, the pace of the data-centre build-out, rather than the whole economy.</p>
+  <p><b>3. The boom is dented, not erased.</b> About 80% of the gains since ChatGPT's launch are still in place, and the index is still more than double its November 2022 level.</p>
+  <p class="muted">This is a data story, not investment advice.</p>
+</section>
+
+<!-- ===================== SOURCES ===================== -->
+<section class="prose wrap sources">
+  <h2 style="font-size:28px">Sources &amp; method</h2>
+  <ul>
+    <li>Index closes for 4–5 Nov, record close (27,599.79, 6 Oct 2026) and chip-stock moves: <a href="https://www.foxbusiness.com/markets/stocks-nov-5-2026">Fox Business</a>, <a href="https://www.cnbc.com/2026/11/04/stock-market-today-live-updates.html">CNBC</a>, <a href="https://www.fool.com/coverage/stock-market-today/2026/11/05/stock-market-today-nov-5-nvidia-slides-on-ai-chip-selloff-as-election-uncertainty-weighs/">Motley Fool</a>, <a href="https://www.stocktitan.net/articles/stock-market-today-live-november-5-2026">StockTitan</a>.</li>
+    <li>$2.5tn and correction context: <a href="https://www.cnn.com/2026/11/05/investing/tech-heavy-nasdaq-plunges">CNN</a>, <a href="https://www.axios.com/2026/11/05/nasdaq-plummets-correction">Axios</a>, <a href="https://fortune.com/2026/11/05/tech-stocks-are-suffering-the-biggest-selloff-since-covid-as-investors-see-premature-end-to-ai-datacenter-boom/">Fortune</a>.</li>
+    <li>Friday jobs and rebound (intraday): <a href="https://finance.yahoo.com/markets/live/stock-market-today-friday-november-6-dow-sp-500-nasdaq-jobs-report-earnings-135953863.html">Yahoo Finance</a>, <a href="https://coinpaper.com/38436/stock-market-today-nasdaq-rebounds-1-7-as-nvidia-jumps-5-6-after-historic-ai-selloff">Coinpaper</a>.</li>
+    <li>Norway's oil fund value, 30 Sep 2026: <a href="https://oilprice.com/Latest-Energy-News/World-News/Norways-23-Trillion-Oil-Fund-Loses-30-Billion-in-Third-Quarter.amp.html">OilPrice / Reuters</a>.</li>
+    <li>2022–2025 month-end closes and historical worst days are standard published values, rounded. Month-end closes for Jan–Sep 2026 come from a <a href="https://www.statmuse.com/money/ask/nasdaq-close-by-month-2026">StatMuse table</a> and are <b>provisional</b>. The line joins reported closes. It is not a daily series.</li>
+    <li>Derived figures (shares of the AI-era gain, drawdown, multiples) are computed from the closes above. See <code>data/</code> and <code>tests/</code> in the repository.</li>
+  </ul>
+</section>
+
+<footer class="wrap">Designed and built with Claude · Data as of Friday 6 Nov 2026, midday ET</footer>
+
+<script>
+/*DATA-START*/
+const DATA = {"nasdaq": [["2022-10-31", 10988.15, "month"], ["2022-11-30", 11468.0, "session"], ["2022-12-30", 10466.48, "month"], ["2023-01-31", 11584.55, "month"], ["2023-02-28", 11455.54, "month"], ["2023-03-31", 12221.91, "month"], ["2023-04-28", 12226.58, "month"], ["2023-05-31", 12935.29, "month"], ["2023-06-30", 13787.92, "month"], ["2023-07-31", 14346.02, "month"], ["2023-08-31", 14034.97, "month"], ["2023-09-29", 13219.32, "month"], ["2023-10-31", 12851.24, "month"], ["2023-11-30", 14226.22, "month"], ["2023-12-29", 15011.35, "month"], ["2024-01-31", 15164.01, "month"], ["2024-02-29", 16091.92, "month"], ["2024-03-28", 16379.46, "month"], ["2024-04-30", 15657.82, "month"], ["2024-05-31", 16735.02, "month"], ["2024-06-28", 17732.6, "month"], ["2024-07-31", 17599.4, "month"], ["2024-08-30", 17713.62, "month"], ["2024-09-30", 18189.17, "month"], ["2024-10-31", 18095.15, "month"], ["2024-11-29", 19218.17, "month"], ["2024-12-31", 19310.79, "month"], ["2025-01-31", 19627.44, "month"], ["2025-02-28", 18847.28, "month"], ["2025-03-31", 17299.29, "month"], ["2025-04-30", 17446.34, "month"], ["2025-05-30", 19113.77, "month"], ["2025-06-30", 20369.73, "month"], ["2025-07-31", 21122.45, "month"], ["2025-08-29", 21455.55, "month"], ["2025-09-30", 22660.01, "month"], ["2025-10-31", 23724.96, "month"], ["2025-11-28", 23365.69, "month"], ["2025-12-31", 23242.0, "month"], ["2026-01-30", 23461.82, "month"], ["2026-02-27", 22668.21, "month"], ["2026-03-31", 21590.63, "month"], ["2026-04-30", 24892.31, "month"], ["2026-05-29", 26972.62, "month"], ["2026-06-30", 26213.72, "month"], ["2026-07-31", 25373.85, "month"], ["2026-08-31", 26370.89, "month"], ["2026-09-30", 26861.06, "month"], ["2026-10-05", 27477.31, "session"], ["2026-10-06", 27599.79, "session"], ["2026-10-28", 26549.85, "session"], ["2026-10-29", 26184.72, "session"], ["2026-11-03", 25372.01, "session"], ["2026-11-04", 25736.51, "session"], ["2026-11-05", 24315.0, "session"], ["2026-11-06", 24735.7, "intraday"]], "worst": [["1987-10-19", "Black Monday", -11.35, -46.12], ["2000-04-14", "Dot-com bust", -9.67, -355.49], ["2001-01-02", "Dot-com bust", -7.23, -178.66], ["2008-09-29", "TARP vote fails", -9.14, -199.61], ["2008-12-01", "Financial crisis", -8.95, -137.5], ["2020-03-12", "Covid crash", -9.43, -750.25], ["2020-03-16", "Covid crash", -12.32, -970.28], ["2022-09-13", "Hot CPI print", -5.16, -632.84], ["2024-08-05", "Yen carry unwind", -3.43, -576.08], ["2025-01-27", "DeepSeek shock", -3.07, -612.47], ["2025-04-03", "Tariff shock", -5.97, -1050.44], ["2025-04-04", "Tariff shock", -5.82, -962.82], ["2026-11-05", "AI chip rout", -5.52, -1421.51]], "movers": [["Micron", -17.46, "close"], ["AMD", -17.26, "close"], ["Nebius", -15.0, "approximate"], ["Broadcom", -10.43, "close"], ["CoreWeave", -10.0, "approximate"], ["Nvidia", -9.26, "close"], ["Nasdaq Composite", -5.52, "close"], ["S&P 500", -4.36, "close"], ["Dow Jones", -3.4, "close"]]};
+/*DATA-END*/
+
+(() => {
+  "use strict";
+  const parse = d3.timeParse("%Y-%m-%d");
+  const fmtDate = d3.timeFormat("%-d %b %Y");
+  const fmt0 = d3.format(",.0f");
+  const fmt2 = d3.format(",.2f");
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const tip = document.getElementById("tip");
+  const showTip = (html, e) => {
+    tip.innerHTML = html; tip.style.opacity = 1;
+    const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > innerWidth - 8) x = e.clientX - w - pad;
+    if (y + h > innerHeight - 8) y = e.clientY - h - pad;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  };
+  const hideTip = () => { tip.style.opacity = 0; };
+
+  // ---------- theme toggle ----------
+  document.getElementById("theme").addEventListener("click", () => {
+    const root = document.documentElement;
+    const isDark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = isDark ? "light" : "dark";
+    try { localStorage.setItem("theme", root.dataset.theme); } catch (e) {}
+  });
+  try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+
+  // ---------- progress ----------
+  addEventListener("scroll", () => {
+    const h = document.documentElement.scrollHeight - innerHeight;
+    document.getElementById("progress").style.width = (100 * scrollY / Math.max(h, 1)) + "%";
+  }, { passive: true });
+
+  // ---------- hero counters ----------
+  const fmtCount = { pts: (v) => (v < 0 ? "−" : "") + fmt2(Math.abs(v)),
+                     pct: (v) => (v < 0 ? "−" : "") + Math.abs(v).toFixed(2) + "%",
+                     tn: (v) => "~$" + v.toFixed(1) + "T" };
+  document.querySelectorAll("[data-count]").forEach((el) => {
+    const target = +el.dataset.count, f = fmtCount[el.dataset.fmt];
+    d3.select(el).transition().delay(300).duration(1600).ease(d3.easeCubicOut)
+      .tween("text", () => (t) => { el.textContent = f(target * t); });
+  });
+
+  // =====================================================================
+  // 1. Scrollytelling line chart
+  // =====================================================================
+  const pts = DATA.nasdaq.map(([d, v, k]) => ({ date: parse(d), v, kind: k }));
+  const byDate = (s) => pts.find((p) => +p.date === +parse(s));
+  const P = { chatgpt: byDate("2022-11-30"), peak: byDate("2026-10-06"), nov4: byDate("2026-11-04"),
+              nov5: byDate("2026-11-05"), nov6: byDate("2026-11-06") };
+  const closes = pts.filter((p) => p.kind !== "intraday");
+
+  const svg = d3.select("#lineChart");
+  const gRoot = svg.append("g");
+  const gGrid = gRoot.append("g").attr("class", "gridline");
+  const gX = gRoot.append("g").attr("class", "axis");
+  const gY = gRoot.append("g").attr("class", "axis");
+  const gBand = gRoot.append("g");
+  const area = gRoot.append("path").attr("fill", "var(--boom-soft)").attr("opacity", 0);
+  const line = gRoot.append("path").attr("fill", "none").attr("stroke", "var(--text-secondary)").attr("stroke-width", 2).attr("stroke-linejoin", "round");
+  const lineIntra = gRoot.append("path").attr("fill", "none").attr("stroke", "var(--boom)").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+  const gDots = gRoot.append("g");
+  const gAnn = gRoot.append("g");
+  const hover = gRoot.append("g").style("display", "none");
+  hover.append("line").attr("stroke", "var(--axis)").attr("stroke-dasharray", "2 3");
+  hover.append("circle").attr("r", 5).attr("fill", "var(--surface-1)").attr("stroke", "var(--text-primary)").attr("stroke-width", 2);
+  const overlay = gRoot.append("rect").attr("fill", "transparent");
+
+  const STEPS = [
+    { x: ["2026-08-20", "2026-11-10"], y: [23000, 28200], sub: "Index level · reported closes, Aug–Nov 2026" },
+    { x: ["2026-08-20", "2026-11-10"], y: [23000, 28200], sub: "Index level · reported closes, Aug–Nov 2026" },
+    { x: ["2026-08-20", "2026-11-10"], y: [23000, 28200], sub: "Index level · reported closes, Aug–Nov 2026" },
+    { x: ["2022-10-01", "2026-11-30"], y: [8000, 30000], sub: "Index level · month-end closes plus key sessions, 2022–2026" },
+    { x: ["2022-10-01", "2026-11-30"], y: [8000, 30000], sub: "Index level · month-end closes plus key sessions, 2022–2026" },
+    { x: ["2022-10-01", "2026-11-30"], y: [8000, 30000], sub: "Index level · month-end closes plus key sessions, 2022–2026" },
+  ];
+  let cur = 0, W = 0, H = 0;
+  const M = { t: 16, r: 20, b: 30, l: 56 };
+  const x = d3.scaleTime(), y = d3.scaleLinear();
+
+  function size() {
+    const r = svg.node().getBoundingClientRect();
+    W = r.width; H = r.height;
+    M.r = W < 500 ? 12 : 24; M.l = W < 500 ? 46 : 56;
+    x.range([M.l, W - M.r]); y.range([H - M.b, M.t]);
+    overlay.attr("x", M.l).attr("y", M.t).attr("width", Math.max(0, W - M.l - M.r)).attr("height", Math.max(0, H - M.t - M.b));
+  }
+
+  function draw(step, animate) {
+    const s = STEPS[step];
+    document.getElementById("lineSub").textContent = s.sub;
+    x.domain(s.x.map(parse)); y.domain(s.y);
+    const T = animate ? 900 : 0;
+    const t = d3.transition().duration(T).ease(d3.easeCubicInOut);
+    const narrow = W < 500;
+    const zoomed = step < 3;
+
+    gX.attr("transform", `translate(0,${H - M.b})`).transition(t)
+      .call(d3.axisBottom(x).ticks(narrow ? 4 : 7).tickSizeOuter(0)
+        .tickFormat(zoomed ? d3.timeFormat("%-d %b") : d3.timeFormat("%Y")));
+    gY.attr("transform", `translate(${M.l},0)`).transition(t)
+      .call(d3.axisLeft(y).ticks(6).tickFormat((d) => d3.format(",")(d)).tickSize(0).tickPadding(8))
+      .call((g) => g.select(".domain").remove());
+    gGrid.attr("transform", `translate(${M.l},0)`).transition(t)
+      .call(d3.axisLeft(y).ticks(6).tickSize(-(W - M.l - M.r)).tickFormat(""));
+
+    const visible = closes.filter((p) => p.date >= x.domain()[0] && p.date <= x.domain()[1]);
+    // clip to domain by drawing all but using clipPath
+    const lineGen = d3.line().x((d) => x(d.date)).y((d) => y(d.v));
+    const areaGen = d3.area().x((d) => x(d.date)).y0(y(s.y[0])).y1((d) => y(d.v));
+    line.datum(closes).transition(t).attr("d", lineGen);
+    area.datum(closes.filter(p => p.date >= P.chatgpt.date)).transition(t).attr("d", areaGen).attr("opacity", step >= 3 ? 1 : 0);
+    lineIntra.datum([P.nov5, P.nov6]).transition(t).attr("d", lineGen).attr("opacity", step === 0 ? 0 : (step >= 5 || step <= 2 ? 1 : 0.6));
+
+    // dots: sessions in zoom view; key points in wide view
+    const dotData = zoomed ? pts.filter(p => p.date >= x.domain()[0]) : [P.chatgpt, P.peak, P.nov5, ...(step >= 5 ? [P.nov6] : [])];
+    const dots = gDots.selectAll("circle").data(dotData, (d) => +d.date);
+    dots.exit().transition(t).attr("r", 0).remove();
+    dots.enter().append("circle").attr("r", 0)
+      .attr("cx", (d) => x(d.date)).attr("cy", (d) => y(d.v))
+      .attr("stroke", "var(--surface-1)").attr("stroke-width", 2)
+      .merge(dots)
+      .attr("fill", (d) => dotColor(d, step))
+      .transition(t).attr("cx", (d) => x(d.date)).attr("cy", (d) => y(d.v)).attr("r", (d) => (d.kind === "month" ? 3.5 : 5));
+
+    // clip everything outside plot
+    gRoot.attr("clip-path", null);
+    annotate(step, T);
+  }
+
+  function dotColor(d, step) {
+    if (d === P.nov5 && step >= 1) return "var(--loss)";
+    if (d === P.nov4 && step === 0) return "var(--boom)";
+    if (d === P.chatgpt || d === P.peak || d === P.nov6) return "var(--boom)";
+    if (d.kind === "intraday") return "var(--boom)";
+    return "var(--text-secondary)";
+  }
+
+  function label(g, px, py, lines, anchor = "start", cls = []) {
+    const tx = g.append("text").attr("x", px).attr("y", py).attr("text-anchor", anchor);
+    lines.forEach((l, i) => tx.append("tspan").attr("x", px).attr("dy", i ? "1.25em" : 0)
+      .attr("class", "halo " + (cls[i] || (i ? "ann-sub" : "ann-text"))).html(l));
+    return tx;
+  }
+
+  function annotate(step, T) {
+    gAnn.selectAll("*").interrupt().transition().duration(T ? 200 : 0).style("opacity", 0).remove();
+    gBand.selectAll("*").interrupt().transition().duration(T ? 200 : 0).style("opacity", 0).remove();
+    const g = gAnn.append("g").style("opacity", 0);
+    const b = gBand.append("g").style("opacity", 0);
+    const narrow = W < 500;
+    const pk = { x: x(P.peak.date), y: y(P.peak.v) };
+    const n4 = { x: x(P.nov4.date), y: y(P.nov4.v) };
+    const n5 = { x: x(P.nov5.date), y: y(P.nov5.v) };
+
+    if (step === 0) {
+      label(g, n4.x - 10, n4.y - 18, ["4 Nov: +1.44%", "close 25,736.51"], "end");
+      label(g, pk.x, pk.y - 12, ["Record 27,599.79", "6 Oct"], "middle");
+    }
+    if (step === 1) {
+      g.append("line").attr("x1", n4.x).attr("y1", n4.y).attr("x2", n5.x).attr("y2", n5.y)
+        .attr("stroke", "var(--loss)").attr("stroke-width", 4).attr("stroke-linecap", "round");
+      label(g, n5.x - 14, n5.y + 34, ["−1,421.51 pts", "−5.52% · close 24,315.00", "largest point drop ever"], "end", ["ann-big loss", "ann-sub", "ann-sub"])
+        .selectAll("tspan").filter((d, i) => i === 0).style("fill", "var(--loss)");
+    }
+    if (step === 2) {
+      const thr = P.peak.v * 0.9;
+      b.append("rect").attr("x", M.l).attr("width", W - M.l - M.r)
+        .attr("y", y(thr)).attr("height", Math.max(0, y(s0()) - y(thr))).attr("fill", "var(--loss-soft)");
+      b.append("line").attr("x1", M.l).attr("x2", W - M.r).attr("y1", pk.y).attr("y2", pk.y)
+        .attr("stroke", "var(--boom)").attr("stroke-dasharray", "5 4");
+      b.append("line").attr("x1", M.l).attr("x2", W - M.r).attr("y1", y(thr)).attr("y2", y(thr))
+        .attr("stroke", "var(--loss)").attr("stroke-dasharray", "5 4");
+      label(g, M.l + 8, pk.y - 8, ["Record close 27,599.79"]);
+      label(g, M.l + 8, y(thr) + 18, ["−10% · correction line (24,840)"]);
+      g.append("line").attr("x1", n5.x).attr("x2", n5.x).attr("y1", pk.y).attr("y2", n5.y)
+        .attr("stroke", "var(--loss)").attr("stroke-width", 2).attr("marker-end", "url(#arrowLoss)");
+      label(g, n5.x - 10, y(27250), ["−11.9%"], "end", ["ann-big"]).selectAll("tspan").style("fill", "var(--loss)");
+    }
+    if (step >= 3) {
+      const c = { x: x(P.chatgpt.date), y: y(P.chatgpt.v) };
+      g.append("line").attr("x1", c.x).attr("x2", c.x).attr("y1", c.y + 8).attr("y2", H - M.b).attr("stroke", "var(--boom)").attr("stroke-dasharray", "2 3");
+      label(g, c.x + 8, y(9400), ["ChatGPT launches", "30 Nov 2022 · 11,468"]);
+      if (step === 3) label(g, pk.x - 8, pk.y - 14, ["+141% to the peak"], "end");
+    }
+    if (step === 4) {
+      const bx = W - M.r - (narrow ? 4 : 10);
+      bracket(g, bx, y(P.chatgpt.v), pk.y, "var(--boom)");
+      bracket(g, bx, pk.y, n5.y, "var(--loss)");
+      g.append("line").attr("x1", x(P.chatgpt.date)).attr("x2", bx).attr("y1", y(P.chatgpt.v)).attr("y2", y(P.chatgpt.v)).attr("stroke", "var(--boom)").attr("stroke-dasharray", "2 3").attr("opacity", .6);
+      const lx = M.l + 14;
+      label(g, lx, y(28400), ["+16,132 pts", "ChatGPT day → record (blue bracket)"], "start", ["ann-big", "ann-sub"]).select("tspan").style("fill", "var(--boom)");
+      label(g, lx, y(28400) + 58, ["−3,285 pts · 20% of it", "given back since 6 Oct (red bracket)"], "start", ["ann-big", "ann-sub"]).select("tspan").style("fill", "var(--loss)");
+    }
+    if (step === 5) {
+      const n6 = { x: x(P.nov6.date), y: y(P.nov6.v) };
+      g.append("line").attr("x1", x(P.chatgpt.date)).attr("x2", W - M.r).attr("y1", y(P.chatgpt.v)).attr("y2", y(P.chatgpt.v)).attr("stroke", "var(--boom)").attr("stroke-dasharray", "2 3").attr("opacity", .6);
+      label(g, M.l + 14, y(28400), ["2.1× the ChatGPT-day level", "~24,736 intraday Fri 6 Nov (dashed)"], "start", ["ann-big", "ann-sub"]).select("tspan").style("fill", "var(--boom)");
+      g.append("circle").attr("cx", n6.x).attr("cy", n6.y).attr("r", 9).attr("fill", "none").attr("stroke", "var(--boom)").attr("stroke-width", 2);
+    }
+    g.transition().delay(T ? T * 0.6 : 0).duration(T ? 400 : 0).style("opacity", 1);
+    b.transition().delay(T ? T * 0.4 : 0).duration(T ? 400 : 0).style("opacity", 1);
+  }
+  const s0 = () => STEPS[cur].y[0];
+
+  function bracket(g, bx, y1, y2, color) {
+    const w = 8;
+    g.append("path").attr("d", `M${bx - w},${y1}H${bx}V${y2}H${bx - w}`).attr("fill", "none").attr("stroke", color).attr("stroke-width", 2.5).attr("stroke-linejoin", "round");
+  }
+
+  // arrow marker
+  const defs = svg.append("defs");
+  defs.append("marker").attr("id", "arrowLoss").attr("viewBox", "0 0 10 10").attr("refX", 8).attr("refY", 5)
+    .attr("markerWidth", 7).attr("markerHeight", 7).attr("orient", "auto-start-reverse")
+    .append("path").attr("d", "M0,0L10,5L0,10z").attr("fill", "var(--loss)");
+  defs.append("clipPath").attr("id", "plotClip").append("rect");
+
+  // hover
+  overlay.on("pointermove", (e) => {
+    const [mx] = d3.pointer(e);
+    const d0 = x.invert(mx);
+    const cand = pts.filter((p) => p.date >= x.domain()[0] && p.date <= x.domain()[1]);
+    if (!cand.length) return;
+    const p = cand.reduce((a, b) => (Math.abs(b.date - d0) < Math.abs(a.date - d0) ? b : a));
+    hover.style("display", null);
+    hover.select("line").attr("x1", x(p.date)).attr("x2", x(p.date)).attr("y1", M.t).attr("y2", H - M.b);
+    hover.select("circle").attr("cx", x(p.date)).attr("cy", y(p.v));
+    const kind = { month: "month-end close", session: "session close", intraday: "intraday, not a close" }[p.kind];
+    const vsGpt = p.v / P.chatgpt.v - 1, vsPeak = p.v / P.peak.v - 1;
+    showTip(`<b>${fmtDate(p.date)}</b><br>${fmt2(p.v)} <span class="k">· ${kind}</span><br>
+      <span class="k">vs ChatGPT day</span> ${d3.format("+.0%")(vsGpt)}<br>
+      <span class="k">vs record</span> ${d3.format("+.1%")(vsPeak)}`, e);
+  }).on("pointerleave", () => { hover.style("display", "none"); hideTip(); });
+
+  // clip the line paths to the plot
+  function applyClip() {
+    defs.select("#plotClip rect").attr("x", M.l).attr("y", 0).attr("width", Math.max(0, W - M.l - M.r + 6)).attr("height", H - M.b + 2);
+    [line, lineIntra, area, gDots, gBand].forEach((s) => s.attr("clip-path", "url(#plotClip)"));
+  }
+
+  size(); applyClip(); draw(0, false);
+
+  // step observer
+  const stepEls = [...document.querySelectorAll(".step")];
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (!en.isIntersecting) return;
+      const i = +en.target.dataset.step;
+      stepEls.forEach((s) => s.classList.toggle("active", s === en.target));
+      if (i !== cur) { cur = i; draw(cur, true); }
+    });
+  }, { rootMargin: matchMedia("(max-width: 860px)").matches ? "-68% 0px -30% 0px" : "-45% 0px -45% 0px" });
+  stepEls.forEach((s) => io.observe(s));
+  stepEls[0].classList.add("active");
+
+  // =====================================================================
+  // 2. Ledger bar (animate in on view)
+  // =====================================================================
+  const ledger = document.getElementById("ledger");
+  [...ledger.children].forEach((el) => {
+    el.style.flexGrow = 0;
+    el.addEventListener("pointermove", (e) => showTip(el.dataset.tip, e));
+    el.addEventListener("pointerleave", hideTip);
+  });
+  new IntersectionObserver((en, obs) => {
+    if (en[0].isIntersecting) {
+      [...ledger.children].forEach((el, i) => setTimeout(() => (el.style.flexGrow = el.dataset.share), i * 250));
+      obs.disconnect();
+    }
+  }, { threshold: 0.6 }).observe(ledger);
+
+  // =====================================================================
+  // 3. Ranked bars: points vs percent
+  // =====================================================================
+  const worst = DATA.worst.map(([d, label, pct, points]) => ({ date: parse(d), label, pct, points, id: d }));
+  const rk = d3.select("#rankChart");
+  let rankMode = "points";
+  function drawRank(animate) {
+    const w = rk.node().getBoundingClientRect().width;
+    const narrow = w < 560;
+    const rowH = 30, m = { t: 6, r: narrow ? 64 : 80, b: 6, l: narrow ? 128 : 200 };
+    const h = m.t + m.b + rowH * worst.length;
+    rk.attr("height", h).attr("viewBox", `0 0 ${w} ${h}`);
+    const key = rankMode === "points" ? (d) => -d.points : (d) => -d.pct;
+    const sorted = worst.slice().sort((a, b) => key(b) - key(a));
+    const yb = d3.scaleBand().domain(sorted.map((d) => d.id)).range([m.t, h - m.b]).padding(0.28);
+    const xb = d3.scaleLinear().domain([0, d3.max(worst, key)]).range([m.l, w - m.r]);
+    const T = animate ? 800 : 0;
+    const rows = rk.selectAll("g.row").data(worst, (d) => d.id);
+    const enter = rows.enter().append("g").attr("class", "row");
+    enter.append("rect").attr("class", "hit").attr("fill", "transparent");
+    enter.append("rect").attr("class", "bar").attr("rx", 4);
+    enter.append("text").attr("class", "lab").attr("text-anchor", "end").attr("dy", "0.35em").style("font-size", "13px");
+    enter.append("text").attr("class", "val num").attr("dy", "0.35em").style("font-size", "13px").style("font-weight", 600);
+    const all = enter.merge(rows);
+    all.on("pointermove", (e, d) => showTip(`<b>${fmtDate(d.date)}</b> · ${d.label}<br>${d.pct.toFixed(2)}% · ${fmt2(d.points)} pts`, e)).on("pointerleave", hideTip);
+    all.transition().duration(T).ease(d3.easeCubicInOut).attr("transform", (d) => `translate(0,${yb(d.id)})`);
+    all.select(".hit").attr("x", 0).attr("width", w).attr("y", -4).attr("height", yb.bandwidth() + 8);
+    all.select(".bar").attr("x", m.l).attr("height", yb.bandwidth())
+      .attr("fill", (d) => (d.id === "2026-11-05" ? "var(--loss)" : "var(--neutral)"))
+      .transition().duration(T).ease(d3.easeCubicInOut).attr("width", (d) => Math.max(2, xb(key(d)) - m.l));
+    all.select(".lab").attr("x", m.l - 10).attr("y", yb.bandwidth() / 2)
+      .style("font-weight", (d) => (d.id === "2026-11-05" ? 700 : 400))
+      .style("fill", (d) => (d.id === "2026-11-05" ? "var(--text-primary)" : "var(--text-secondary)"))
+      .text((d) => (narrow ? d3.timeFormat("%b %Y")(d.date) : `${d3.timeFormat("%-d %b %Y")(d.date)} · ${d.label}`));
+    all.select(".val").attr("y", yb.bandwidth() / 2).style("fill", "var(--text-primary)")
+      .transition().duration(T).ease(d3.easeCubicInOut)
+      .attr("x", (d) => xb(key(d)) + 8)
+      .text((d) => (rankMode === "points" ? "−" + fmt0(-d.points) : "−" + (-d.pct).toFixed(2) + "%"));
+    const rank = sorted.findIndex((d) => d.id === "2026-11-05") + 1;
+    document.getElementById("rankSub").textContent = rankMode === "points"
+      ? `Ranked by points lost in one session · 5 Nov 2026 is #${rank}`
+      : `Ranked by % lost in one session · 5 Nov 2026 is #${rank} of these ${worst.length}`;
+  }
+  const bPts = document.getElementById("byPts"), bPct = document.getElementById("byPct");
+  bPts.onclick = () => { rankMode = "points"; bPts.setAttribute("aria-pressed", true); bPct.setAttribute("aria-pressed", false); drawRank(true); };
+  bPct.onclick = () => { rankMode = "percent"; bPct.setAttribute("aria-pressed", true); bPts.setAttribute("aria-pressed", false); drawRank(true); };
+  drawRank(false);
+  // auto-flip once when scrolled into view, to show the punchline
+  new IntersectionObserver((en, obs) => {
+    if (en[0].isIntersecting) { setTimeout(() => { if (rankMode === "points") bPct.click(); }, 1800); obs.disconnect(); }
+  }, { threshold: 0.7 }).observe(rk.node());
+
+  // =====================================================================
+  // 4. Movers
+  // =====================================================================
+  const movers = DATA.movers.map(([name, pct, basis]) => ({ name, pct, basis, index: /Nasdaq|S&P|Dow/.test(name) }));
+  const mv = d3.select("#moversChart");
+  function drawMovers() {
+    const w = mv.node().getBoundingClientRect().width;
+    const narrow = w < 560;
+    const rowH = 32, m = { t: 4, r: 64, b: 24, l: narrow ? 118 : 150 };
+    const h = m.t + m.b + rowH * movers.length;
+    mv.attr("height", h).attr("viewBox", `0 0 ${w} ${h}`).selectAll("*").remove();
+    const yb = d3.scaleBand().domain(movers.map((d) => d.name)).range([m.t, h - m.b]).padding(0.3);
+    const xb = d3.scaleLinear().domain([0, 20]).range([m.l, w - m.r]);
+    mv.append("g").attr("class", "gridline").attr("transform", `translate(0,${h - m.b})`)
+      .call(d3.axisBottom(xb).ticks(4).tickSize(-(h - m.t - m.b)).tickFormat(""));
+    mv.append("g").attr("class", "axis").attr("transform", `translate(0,${h - m.b})`)
+      .call(d3.axisBottom(xb).ticks(4).tickSize(0).tickPadding(8).tickFormat((d) => (d ? "−" + d + "%" : "0")))
+      .call((g) => g.select(".domain").remove());
+    const r = mv.selectAll("g.r").data(movers).enter().append("g").attr("class", "r").attr("transform", (d) => `translate(0,${yb(d.name)})`);
+    r.append("rect").attr("x", 0).attr("width", w).attr("y", -4).attr("height", yb.bandwidth() + 8).attr("fill", "transparent");
+    r.append("rect").attr("x", m.l).attr("height", yb.bandwidth()).attr("rx", 4)
+      .attr("fill", (d) => (d.index ? "var(--neutral)" : "var(--loss)"))
+      .attr("opacity", (d) => (d.basis === "approximate" ? 0.6 : 1))
+      .attr("width", 0)
+      .transition().delay((d, i) => i * 70).duration(900).ease(d3.easeCubicOut)
+      .attr("width", (d) => xb(-d.pct) - m.l);
+    r.append("text").attr("x", m.l - 10).attr("y", yb.bandwidth() / 2).attr("dy", "0.35em").attr("text-anchor", "end")
+      .style("font-size", "13px").style("font-weight", (d) => (d.index ? 400 : 600)).style("fill", "var(--text-primary)").text((d) => (narrow ? d.name.replace(" Composite", "") : d.name));
+    r.append("text").attr("class", "num").attr("x", (d) => xb(-d.pct) + 8).attr("y", yb.bandwidth() / 2).attr("dy", "0.35em")
+      .style("font-size", "13px").style("fill", "var(--text-secondary)").text((d) => (d.basis === "approximate" ? "≈" : "") + "−" + (-d.pct).toFixed(d.basis === "approximate" ? 0 : 2) + "%");
+    r.on("pointermove", (e, d) => showTip(`<b>${d.name}</b><br>${d.pct.toFixed(2)}% <span class="k">· ${d.basis === "close" ? "closing change" : "approximate, from news reports"}</span>`, e)).on("pointerleave", hideTip);
+  }
+  let moversDrawn = false;
+  new IntersectionObserver((en, obs) => { if (en[0].isIntersecting) { drawMovers(); moversDrawn = true; obs.disconnect(); } }, { threshold: 0.3 }).observe(mv.node());
+
+  // =====================================================================
+  // 5. Proportional squares
+  // =====================================================================
+  const SQ = [
+    { name: "Nasdaq value erased, 5 Nov", v: 2.5, color: "var(--loss)", note: "CNN estimate" },
+    { name: "Norway's oil fund (GPFG), 30 Sep 2026", v: 2.35, color: "var(--neutral)", note: "NOK 22.0tn · NBIM" },
+    { name: "Nvidia's loss on 5 Nov", v: 0.45, color: "var(--loss)", note: "≈24.3bn shares × $18.5" },
+    { name: "All of Nvidia, ChatGPT launch day", v: 0.42, color: "var(--boom)", note: "≈2.46bn sh × $169 (pre-split)" },
+  ];
+  document.getElementById("sqTable").innerHTML = SQ.map((d) => `<tr><td>${d.name}</td><td>${d.v.toFixed(2)}</td><td>${d.note}</td></tr>`).join("");
+  const sq = d3.select("#squares");
+  function drawSquares(animate) {
+    const w = sq.node().getBoundingClientRect().width;
+    const narrow = w < 620;
+    const maxSide = narrow ? Math.min(w * 0.42, 200) : Math.min(w / 4.6, 230);
+    const side = (v) => maxSide * Math.sqrt(v / 2.5);
+    const gap = narrow ? 16 : 28;
+    // layout: two rows on narrow (pairs), one row on wide; bottoms aligned
+    const pairs = narrow ? [[SQ[0], SQ[1]], [SQ[2], SQ[3]]] : [SQ];
+    const labelH = 58;
+    let yoff = 8; const items = [];
+    pairs.forEach((row) => {
+      const rowH = d3.max(row, (d) => side(d.v));
+      let xoff = 4;
+      row.forEach((d) => { items.push({ ...d, x: xoff, y: yoff + rowH - side(d.v), s: side(d.v), base: yoff + rowH }); xoff += Math.max(side(d.v), narrow ? w / 2 - gap : 150) + gap; });
+      yoff += rowH + labelH + 10;
+    });
+    sq.attr("height", yoff).attr("viewBox", `0 0 ${w} ${yoff}`).selectAll("*").remove();
+    const g = sq.selectAll("g").data(items).enter().append("g");
+    g.append("rect").attr("x", (d) => d.x).attr("y", (d) => d.base).attr("width", (d) => d.s).attr("height", 0).attr("rx", 4)
+      .attr("fill", (d) => d.color)
+      .transition().delay((d, i) => (animate ? i * 220 : 0)).duration(animate ? 900 : 0).ease(d3.easeCubicOut)
+      .attr("y", (d) => d.y).attr("height", (d) => d.s);
+    g.append("text").attr("class", "num").attr("x", (d) => d.x).attr("y", (d) => d.base + 22)
+      .style("font-size", "18px").style("font-weight", 700).style("fill", "var(--text-primary)").text((d) => "$" + d.v.toFixed(2) + "T");
+    g.append("text").attr("x", (d) => d.x).attr("y", (d) => d.base + 40).style("font-size", "12px").style("fill", "var(--text-secondary)")
+      .text((d) => d.name).call(wrapText, narrow ? w / 2 - gap : 170);
+    g.on("pointermove", (e, d) => showTip(`<b>${d.name}</b><br>$${d.v.toFixed(2)} trillion<br><span class="k">${d.note}</span>`, e)).on("pointerleave", hideTip);
+  }
+  function wrapText(sel, width) {
+    sel.each(function () {
+      const t = d3.select(this), words = t.text().split(/\s+/), x0 = t.attr("x");
+      t.text(null); let line = [], ts = t.append("tspan").attr("x", x0), n = 0;
+      words.forEach((wd) => {
+        line.push(wd); ts.text(line.join(" "));
+        if (ts.node().getComputedTextLength() > width && line.length > 1) {
+          line.pop(); ts.text(line.join(" ")); line = [wd];
+          ts = t.append("tspan").attr("x", x0).attr("dy", "1.2em").text(wd); n++;
+        }
+      });
+    });
+  }
+  let sqDrawn = false;
+  new IntersectionObserver((en, obs) => { if (en[0].isIntersecting) { drawSquares(true); sqDrawn = true; obs.disconnect(); } }, { threshold: 0.3 }).observe(sq.node());
+  sq.attr("height", 300);
+  mv.attr("height", 300);
+
+  // ---------- resize ----------
+  let rt;
+  addEventListener("resize", () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => { size(); applyClip(); draw(cur, false); drawRank(false); if (moversDrawn) drawMovers(); if (sqDrawn) drawSquares(false); }, 150);
+  });
+})();
+</script>
+</body>
+</html>
