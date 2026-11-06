@@ -33,7 +33,8 @@ def load_data() -> dict[str, list]:
         for r in _rows("worst_days.csv")
     ]
     movers = [[r["name"], float(r["pct"]), r["basis"]] for r in _rows("movers_2026-11-05.csv")]
-    return {"nasdaq": nasdaq, "worst": worst, "movers": movers}
+    trail = json.loads((DATA / "trail_match.json").read_text())
+    return {"nasdaq": nasdaq, "worst": worst, "movers": movers, "trail": trail}
 
 
 def main() -> None:
